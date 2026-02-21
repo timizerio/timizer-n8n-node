@@ -6,7 +6,9 @@ import type {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	JsonObject,
 } from 'n8n-workflow';
+import { NodeApiError } from 'n8n-workflow';
 
 const CONTACT_FIELDS: INodeTypeDescription['properties'] = [
 	{ displayName: 'First Name', name: 'firstname', type: 'string', default: '' },
@@ -814,6 +816,7 @@ export class Timizer implements INodeType {
 					returnData.push({
 						json: {},
 						binary: { data: binaryData },
+						pairedItem: { item: i },
 					});
 					continue;
 				}
@@ -864,10 +867,10 @@ export class Timizer implements INodeType {
 				}
 			} catch (error) {
 				if (this.continueOnFail()) {
-					returnData.push({ json: { error: (error as Error).message } });
+					returnData.push({ json: { error: (error as Error).message }, pairedItem: { item: i } });
 					continue;
 				}
-				throw error;
+				throw new NodeApiError(this.getNode(), error as JsonObject);
 			}
 		}
 
