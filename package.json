@@ -7,7 +7,7 @@
 		"n8n",
 		"timizer",
 		"timesheet",
-		"cra"
+		"activity-report"
 	],
 	"license": "MIT",
 	"homepage": "https://github.com/timizerio/timizer-n8n-node",
@@ -18,7 +18,6 @@
 		"type": "git",
 		"url": "https://github.com/timizerio/timizer-n8n-node.git"
 	},
-	"main": "index.js",
 	"scripts": {
 		"build": "tsc && gulp build:icons",
 		"dev": "tsc --watch",
@@ -53,5 +52,8 @@
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"
+	},
+	"engines": {
+		"node": ">=18.0.0"
 	}
 }
