@@ -12,7 +12,8 @@
 	"license": "MIT",
 	"homepage": "https://github.com/timizerio/timizer-n8n-node",
 	"author": {
-		"name": "Timizer"
+		"name": "Timizer",
+		"email": "thibault@timizer.io"
 	},
 	"repository": {
 		"type": "git",
