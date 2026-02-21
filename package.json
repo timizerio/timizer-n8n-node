@@ -10,13 +10,13 @@
 		"cra"
 	],
 	"license": "MIT",
-	"homepage": "",
+	"homepage": "https://github.com/timizerio/timizer-n8n-node",
 	"author": {
 		"name": "Timizer"
 	},
 	"repository": {
 		"type": "git",
-		"url": ""
+		"url": "https://github.com/timizerio/timizer-n8n-node.git"
 	},
 	"main": "index.js",
 	"scripts": {
