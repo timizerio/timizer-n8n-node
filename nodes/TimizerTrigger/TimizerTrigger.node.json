@@ -1,8 +1,8 @@
 {
-	"node": "n8n-nodes-base.timizerTrigger",
+	"node": "n8n-nodes-timizer.timizerTrigger",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": ["Communication"],
+	"categories": ["Productivity"],
 	"resources": {
 		"primaryDocumentation": [
 			{

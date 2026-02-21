@@ -13,7 +13,7 @@ services:
       - N8N_PROTOCOL=https
       - N8N_SSL_KEY=/certs/localhost-key.pem
       - N8N_SSL_CERT=/certs/localhost.pem
-      - N8N_WEBHOOK_URL=https://1a4f-2001-861-51-f80-6050-b6c8-522-2b01.ngrok-free.app/
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-https://localhost:5678/}
 
 volumes:
   n8n_data:

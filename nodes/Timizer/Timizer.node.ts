@@ -843,6 +843,13 @@ export class Timizer implements INodeType {
 					requestOptions.body = body;
 				}
 
+				if (operation === 'getMany') {
+					const qs = buildQueryString(resource, this, i);
+					if (Object.keys(qs).length > 0) {
+						requestOptions.qs = qs;
+					}
+				}
+
 				responseData = await this.helpers.httpRequestWithAuthentication.call(
 					this,
 					'timizerApi',
@@ -1109,4 +1116,22 @@ function buildBody(
 	}
 
 	return body;
+}
+
+function buildQueryString(
+	resource: string,
+	ctx: IExecuteFunctions,
+	i: number,
+): IDataObject {
+	const qs: IDataObject = {};
+
+	if (resource === 'activityReport') {
+		const filters = ctx.getNodeParameter('filters', i, {}) as IDataObject;
+		if (filters.memberId) qs.memberId = filters.memberId;
+		if (filters.month) qs.month = filters.month;
+		if (filters.year) qs.year = filters.year;
+		if (filters.status) qs.status = filters.status;
+	}
+
+	return qs;
 }
