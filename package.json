@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-timizer",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "n8n community node for Timizer - Timesheet management platform",
 	"keywords": [
 		"n8n-community-node-package",
