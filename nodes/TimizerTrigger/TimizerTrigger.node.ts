@@ -42,7 +42,7 @@ export class TimizerTrigger implements INodeType {
 				type: 'multiOptions',
 				required: true,
 				default: [],
-				description: 'The events to listen for',
+				description: 'Events are filtered locally. Timizer sends all events to a single webhook endpoint per team.',
 				options: [
 					{
 						name: 'Activity Report Created',
@@ -112,6 +112,9 @@ export class TimizerTrigger implements INodeType {
 				const credentials = await this.getCredentials('timizerApi');
 				const teamId = credentials.teamId as string;
 
+				// Timizer only supports a single webhook endpoint per team, so we register
+				// all events regardless of the user's selection. Filtering happens in the
+				// webhook() handler on the n8n side.
 				const allEvents = [
 					'activity_report.created',
 					'activity_report.deleted',
@@ -143,11 +146,28 @@ export class TimizerTrigger implements INodeType {
 					return true;
 				}
 
-				// In production mode (workflow deactivated), disable the webhook
+				// Only disable the webhook if this workflow owns it (i.e. the registered URL
+				// matches ours). Another workflow on the same team may have registered its own
+				// URL, and we must not disable it.
 				const credentials = await this.getCredentials('timizerApi');
 				const teamId = credentials.teamId as string;
 
 				try {
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'timizerApi',
+						{
+							method: 'GET',
+							url: `https://api.timizer.io/app/admin-teams/${teamId}/webhook`,
+							json: true,
+						},
+					);
+
+					if (response.url !== webhookUrl) {
+						// Another workflow registered a different URL — don't touch it
+						return true;
+					}
+
 					await this.helpers.httpRequestWithAuthentication.call(this, 'timizerApi', {
 						method: 'PUT',
 						url: `https://api.timizer.io/app/admin-teams/${teamId}/webhook`,

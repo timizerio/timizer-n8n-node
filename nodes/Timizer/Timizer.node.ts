@@ -1,10 +1,19 @@
 import type {
 	IDataObject,
 	IExecuteFunctions,
+	IHttpRequestMethods,
+	IHttpRequestOptions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
+
+const CONTACT_FIELDS: INodeTypeDescription['properties'] = [
+	{ displayName: 'First Name', name: 'firstname', type: 'string', default: '' },
+	{ displayName: 'Last Name', name: 'lastname', type: 'string', default: '' },
+	{ displayName: 'Email', name: 'email', type: 'string', default: '' },
+	{ displayName: 'Occupation', name: 'occupation', type: 'string', default: '' },
+];
 
 const BASE_URL = 'https://api.timizer.io';
 
@@ -251,7 +260,7 @@ export class Timizer implements INodeType {
 				name: 'year',
 				type: 'number',
 				required: true,
-				default: 2024,
+				default: new Date().getFullYear(),
 				displayOptions: {
 					show: { resource: ['activityReport'], operation: ['create'] },
 				},
@@ -438,13 +447,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['clientContact'], operation: ['create'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 			{
 				displayName: 'Update Fields',
@@ -455,13 +458,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['clientContact'], operation: ['update'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 
 			// --- Contracted ID ---
@@ -563,13 +560,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['contractedContact'], operation: ['create'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 			{
 				displayName: 'Update Fields',
@@ -580,13 +571,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['contractedContact'], operation: ['update'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 
 			// --- Mission ---
@@ -833,7 +818,7 @@ export class Timizer implements INodeType {
 					continue;
 				}
 
-				const requestOptions: any = {
+				const requestOptions: IHttpRequestOptions = {
 					method,
 					url: `${BASE_URL}${endpoint}`,
 					json: true,
@@ -841,6 +826,13 @@ export class Timizer implements INodeType {
 
 				if (body && Object.keys(body).length > 0) {
 					requestOptions.body = body;
+				}
+
+				if (operation === 'getMany') {
+					const qs = buildQueryString(resource, this, i);
+					if (Object.keys(qs).length > 0) {
+						requestOptions.qs = qs;
+					}
 				}
 
 				responseData = await this.helpers.httpRequestWithAuthentication.call(
@@ -883,7 +875,7 @@ export class Timizer implements INodeType {
 	}
 }
 
-function getHttpMethod(operation: string): string {
+function getHttpMethod(operation: string): IHttpRequestMethods {
 	switch (operation) {
 		case 'create':
 		case 'share':
@@ -1109,4 +1101,22 @@ function buildBody(
 	}
 
 	return body;
+}
+
+function buildQueryString(
+	resource: string,
+	ctx: IExecuteFunctions,
+	i: number,
+): IDataObject {
+	const qs: IDataObject = {};
+
+	if (resource === 'activityReport') {
+		const filters = ctx.getNodeParameter('filters', i, {}) as IDataObject;
+		if (filters.memberId) qs.memberId = filters.memberId;
+		if (filters.month) qs.month = filters.month;
+		if (filters.year) qs.year = filters.year;
+		if (filters.status) qs.status = filters.status;
+	}
+
+	return qs;
 }
