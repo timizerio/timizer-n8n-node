@@ -9,11 +9,10 @@ import type {
 } from 'n8n-workflow';
 
 const CONTACT_FIELDS: INodeTypeDescription['properties'] = [
-	{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-	{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
+	{ displayName: 'First Name', name: 'firstname', type: 'string', default: '' },
+	{ displayName: 'Last Name', name: 'lastname', type: 'string', default: '' },
 	{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-	{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-	{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
+	{ displayName: 'Occupation', name: 'occupation', type: 'string', default: '' },
 ];
 
 const BASE_URL = 'https://api.timizer.io';
