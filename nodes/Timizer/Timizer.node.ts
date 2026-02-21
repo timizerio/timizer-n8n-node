@@ -1,10 +1,20 @@
 import type {
 	IDataObject,
 	IExecuteFunctions,
+	IHttpRequestMethods,
+	IHttpRequestOptions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
+
+const CONTACT_FIELDS: INodeTypeDescription['properties'] = [
+	{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
+	{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
+	{ displayName: 'Email', name: 'email', type: 'string', default: '' },
+	{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
+	{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
+];
 
 const BASE_URL = 'https://api.timizer.io';
 
@@ -251,7 +261,7 @@ export class Timizer implements INodeType {
 				name: 'year',
 				type: 'number',
 				required: true,
-				default: 2024,
+				default: new Date().getFullYear(),
 				displayOptions: {
 					show: { resource: ['activityReport'], operation: ['create'] },
 				},
@@ -438,13 +448,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['clientContact'], operation: ['create'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 			{
 				displayName: 'Update Fields',
@@ -455,13 +459,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['clientContact'], operation: ['update'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 
 			// --- Contracted ID ---
@@ -563,13 +561,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['contractedContact'], operation: ['create'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 			{
 				displayName: 'Update Fields',
@@ -580,13 +572,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['contractedContact'], operation: ['update'] },
 				},
-				options: [
-					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
-					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
-					{ displayName: 'Email', name: 'email', type: 'string', default: '' },
-					{ displayName: 'Phone', name: 'phone', type: 'string', default: '' },
-					{ displayName: 'Job Title', name: 'jobTitle', type: 'string', default: '' },
-				],
+				options: CONTACT_FIELDS,
 			},
 
 			// --- Mission ---
@@ -833,7 +819,7 @@ export class Timizer implements INodeType {
 					continue;
 				}
 
-				const requestOptions: any = {
+				const requestOptions: IHttpRequestOptions = {
 					method,
 					url: `${BASE_URL}${endpoint}`,
 					json: true,
@@ -890,7 +876,7 @@ export class Timizer implements INodeType {
 	}
 }
 
-function getHttpMethod(operation: string): string {
+function getHttpMethod(operation: string): IHttpRequestMethods {
 	switch (operation) {
 		case 'create':
 		case 'share':
