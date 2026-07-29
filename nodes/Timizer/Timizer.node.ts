@@ -17,6 +17,76 @@ const CONTACT_FIELDS: INodeTypeDescription['properties'] = [
 	{ displayName: 'Occupation', name: 'occupation', type: 'string', default: '' },
 ];
 
+// MissionInputDto. Note contractClientId, not contractedId, and start / end
+// rather than startDate / endDate.
+const MISSION_FIELDS: INodeTypeDescription['properties'] = [
+	{ displayName: 'Name', name: 'name', type: 'string', default: '' },
+	{ displayName: 'Custom ID', name: 'customId', type: 'string', default: '', description: 'Your own identifier for this mission' },
+	{
+		displayName: 'Type',
+		name: 'type',
+		type: 'options',
+		default: 'mission',
+		options: [
+			{ name: 'Mission', value: 'mission' },
+			{ name: 'Project', value: 'project' },
+		],
+	},
+	{ displayName: 'Client ID', name: 'clientId', type: 'number', default: 0 },
+	{ displayName: 'Client Contact ID', name: 'clientContactId', type: 'number', default: 0 },
+	{
+		displayName: 'Contract Client ID',
+		name: 'contractClientId',
+		type: 'number',
+		default: 0,
+		description: 'Optional. When set together with Contract Client Contact ID, that contact receives the signed activity report by email.',
+	},
+	{ displayName: 'Contract Client Contact ID', name: 'contractClientContactId', type: 'number', default: 0 },
+	{ displayName: 'Start', name: 'start', type: 'string', default: '', description: 'ISO 8601 datetime' },
+	{ displayName: 'End', name: 'end', type: 'string', default: '', description: 'ISO 8601 datetime' },
+	{ displayName: 'Note', name: 'note', type: 'string', default: '' },
+	{ displayName: 'Purchase Order', name: 'purchaseOrder', type: 'string', default: '' },
+];
+
+// A Timizer tag carries two colours, not one, plus an optional external id.
+const TAG_FIELDS: INodeTypeDescription['properties'] = [
+	{ displayName: 'Custom ID', name: 'customId', type: 'string', default: '', description: 'Your own identifier for this tag' },
+	{ displayName: 'Text Color', name: 'textColor', type: 'color', default: '' },
+	{ displayName: 'Background Color', name: 'backgroundColor', type: 'color', default: '' },
+];
+
+// Optional properties of CreateActivityReportDto, shared by create and update.
+const ACTIVITY_REPORT_OPTIONAL_FIELDS: INodeTypeDescription['properties'] = [
+	{
+		displayName: 'Mission ID',
+		name: 'missionId',
+		type: 'number',
+		default: 0,
+		description: 'When set, the mission\'s client and client contact are used and Client ID / Client Contact ID are ignored',
+	},
+	{ displayName: 'Client Contact ID', name: 'clientContactId', type: 'number', default: 0 },
+	{ displayName: 'Contracted Contact ID', name: 'contractedContactId', type: 'number', default: 0 },
+	{
+		displayName: 'Type',
+		name: 'type',
+		type: 'options',
+		default: 'day',
+		options: [
+			{ name: 'Day', value: 'day' },
+			{ name: 'Hour', value: 'hour' },
+		],
+	},
+	{ displayName: 'Rating', name: 'rating', type: 'number', default: 0 },
+	{ displayName: 'Note', name: 'note', type: 'string', default: '' },
+	{
+		displayName: 'User ID',
+		name: 'userId',
+		type: 'number',
+		default: 0,
+		description: 'The ID of the user that will own the activity report',
+	},
+];
+
 const BASE_URL = 'https://api.timizer.io';
 
 export class Timizer implements INodeType {
@@ -234,16 +304,29 @@ export class Timizer implements INodeType {
 			},
 
 			// --- Activity Report Create fields ---
+			// clientId, contractedId, year, month and workDays are the required
+			// properties of CreateActivityReportDto.
 			{
-				displayName: 'Member ID',
-				name: 'memberId',
-				type: 'string',
+				displayName: 'Client ID',
+				name: 'clientId',
+				type: 'number',
 				required: true,
-				default: '',
+				default: 0,
 				displayOptions: {
 					show: { resource: ['activityReport'], operation: ['create'] },
 				},
-				description: 'The ID of the member for this activity report',
+				description: 'ID of the client the activity report is for. Ignored if a Mission ID is set, the mission\'s client is used instead.',
+			},
+			{
+				displayName: 'Contracted ID',
+				name: 'contractedId',
+				type: 'number',
+				required: true,
+				default: 0,
+				displayOptions: {
+					show: { resource: ['activityReport'], operation: ['create'] },
+				},
+				description: 'ID of the contracted company the activity report is issued by',
 			},
 			{
 				displayName: 'Month',
@@ -262,11 +345,76 @@ export class Timizer implements INodeType {
 				name: 'year',
 				type: 'number',
 				required: true,
-				default: new Date().getFullYear(),
+				default: 2026,
 				displayOptions: {
 					show: { resource: ['activityReport'], operation: ['create'] },
 				},
 				description: 'Year of the activity report',
+			},
+			{
+				displayName: 'Work Days',
+				name: 'workDays',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true, sortable: true },
+				placeholder: 'Add Work Day',
+				default: {},
+				required: true,
+				displayOptions: {
+					show: { resource: ['activityReport'], operation: ['create', 'update'] },
+				},
+				description: 'One entry per day of the month. Days left out are not reported.',
+				options: [
+					{
+						displayName: 'Work Day',
+						name: 'workDay',
+						values: [
+							{
+								displayName: 'Day of Month',
+								name: 'dayOfMonth',
+								type: 'number',
+								default: 1,
+								typeOptions: { minValue: 1, maxValue: 31 },
+							},
+							{
+								displayName: 'Worked Time',
+								name: 'workedTime',
+								type: 'options',
+								default: 'full',
+								options: [
+									{ name: 'None', value: 'none' },
+									{ name: 'Half', value: 'half' },
+									{ name: 'Full', value: 'full' },
+									{ name: 'Custom', value: 'custom' },
+								],
+							},
+							{
+								displayName: 'Worked Seconds',
+								name: 'workedSeconds',
+								type: 'number',
+								default: 0,
+								displayOptions: { show: { workedTime: ['custom'] } },
+								description: 'Duration in seconds, used when Worked Time is Custom',
+							},
+							{
+								displayName: 'Note',
+								name: 'note',
+								type: 'string',
+								default: '',
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'additionalFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['activityReport'], operation: ['create'] },
+				},
+				options: ACTIVITY_REPORT_OPTIONAL_FIELDS,
 			},
 
 			// --- Activity Report Update fields ---
@@ -280,27 +428,24 @@ export class Timizer implements INodeType {
 					show: { resource: ['activityReport'], operation: ['update'] },
 				},
 				options: [
-					{
-						displayName: 'Comment',
-						name: 'comment',
-						type: 'string',
-						default: '',
-					},
+					{ displayName: 'Client ID', name: 'clientId', type: 'number', default: 0 },
+					{ displayName: 'Contracted ID', name: 'contractedId', type: 'number', default: 0 },
+					{ displayName: 'Month', name: 'month', type: 'number', default: 1, typeOptions: { minValue: 1, maxValue: 12 } },
+					{ displayName: 'Year', name: 'year', type: 'number', default: 2026 },
+					...ACTIVITY_REPORT_OPTIONAL_FIELDS,
 				],
 			},
 
 			// --- Activity Report Share by Email ---
 			{
-				displayName: 'Email',
-				name: 'email',
-				type: 'string',
-				placeholder: 'name@email.com',
-				required: true,
-				default: '',
+				displayName: 'Contact ID',
+				name: 'contactId',
+				type: 'number',
+				default: 0,
 				displayOptions: {
 					show: { resource: ['activityReport'], operation: ['shareByEmail'] },
 				},
-				description: 'The email to share the activity report with',
+				description: 'Contact to send the activity report to. Leave at 0 to use the activity report\'s client contact.',
 			},
 
 			// --- Activity Report Get Many filters ---
@@ -315,10 +460,17 @@ export class Timizer implements INodeType {
 				},
 				options: [
 					{
-						displayName: 'Member ID',
-						name: 'memberId',
+						displayName: 'Client ID',
+						name: 'clientId',
+						type: 'number',
+						default: 0,
+					},
+					{
+						displayName: 'Mission ID',
+						name: 'missionId',
 						type: 'string',
 						default: '',
+						description: 'ID of the mission. Comma separated to filter on several missions.',
 					},
 					{
 						displayName: 'Month',
@@ -326,25 +478,28 @@ export class Timizer implements INodeType {
 						type: 'number',
 						default: 0,
 						typeOptions: { minValue: 1, maxValue: 12 },
+						description: 'Year must be set as well',
 					},
 					{
-						displayName: 'Status',
-						name: 'status',
-						type: 'options',
+						displayName: 'Since',
+						name: 'since',
+						type: 'number',
+						default: 0,
+						description: 'Unix timestamp. Only activity reports whose year and month are at or after it are returned.',
+					},
+					{
+						displayName: 'Workflow Step Name',
+						name: 'workflowStepName',
+						type: 'string',
 						default: '',
-						options: [
-							{ name: 'Draft', value: 'draft' },
-							{ name: 'Processed', value: 'processed' },
-							{ name: 'Refused', value: 'refused' },
-							{ name: 'Shared', value: 'shared' },
-							{ name: 'Signed', value: 'signed' },
-						],
+						description: 'Comma separated to filter on several steps',
 					},
 					{
 						displayName: 'Year',
 						name: 'year',
 						type: 'number',
 						default: 0,
+						description: 'Month must be set as well',
 					},
 				],
 			},
@@ -401,11 +556,12 @@ export class Timizer implements INodeType {
 				},
 				options: [
 					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Full Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
-					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'Postal Code', name: 'postalCode', type: 'string', default: '' },
+					{ displayName: 'Country', name: 'country', type: 'string', default: '', description: 'Alpha-2 code, e.g. fr, de' },
+					{ displayName: 'Unique Identifier', name: 'uniqueIdentifier', type: 'string', default: '', description: 'e.g. SIRET number' },
+					{ displayName: 'Archived', name: 'archived', type: 'boolean', default: false },
 				],
 			},
 			{
@@ -418,11 +574,12 @@ export class Timizer implements INodeType {
 					show: { resource: ['client'], operation: ['create'] },
 				},
 				options: [
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Full Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
-					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'Postal Code', name: 'postalCode', type: 'string', default: '' },
+					{ displayName: 'Country', name: 'country', type: 'string', default: '', description: 'Alpha-2 code, e.g. fr, de' },
+					{ displayName: 'Unique Identifier', name: 'uniqueIdentifier', type: 'string', default: '', description: 'e.g. SIRET number' },
+					{ displayName: 'Team ID', name: 'teamId', type: 'number', default: 0, description: 'Set to make the client available to your team; leave empty to keep it private to your user' },
 				],
 			},
 
@@ -514,11 +671,11 @@ export class Timizer implements INodeType {
 				},
 				options: [
 					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Full Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
-					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'Postal Code', name: 'postalCode', type: 'string', default: '' },
+					{ displayName: 'Unique Identifier', name: 'uniqueIdentifier', type: 'string', default: '', description: 'e.g. SIRET number' },
+					{ displayName: 'Archived', name: 'archived', type: 'boolean', default: false },
 				],
 			},
 			{
@@ -531,11 +688,11 @@ export class Timizer implements INodeType {
 					show: { resource: ['contracted'], operation: ['create'] },
 				},
 				options: [
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Full Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
-					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'Postal Code', name: 'postalCode', type: 'string', default: '' },
+					{ displayName: 'Unique Identifier', name: 'uniqueIdentifier', type: 'string', default: '', description: 'e.g. SIRET number' },
+					{ displayName: 'Team ID', name: 'teamId', type: 'number', default: 0, description: 'Set to make the contracted company available to your team; leave empty to keep it private to your user' },
 				],
 			},
 
@@ -599,13 +756,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['mission'], operation: ['create'] },
 				},
-				options: [
-					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Client ID', name: 'clientId', type: 'string', default: '' },
-					{ displayName: 'Contracted ID', name: 'contractedId', type: 'string', default: '' },
-					{ displayName: 'Start Date', name: 'startDate', type: 'string', default: '', description: 'ISO 8601 date' },
-					{ displayName: 'End Date', name: 'endDate', type: 'string', default: '', description: 'ISO 8601 date' },
-				],
+				options: MISSION_FIELDS,
 			},
 			{
 				displayName: 'Update Fields',
@@ -616,13 +767,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['mission'], operation: ['update'] },
 				},
-				options: [
-					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Client ID', name: 'clientId', type: 'string', default: '' },
-					{ displayName: 'Contracted ID', name: 'contractedId', type: 'string', default: '' },
-					{ displayName: 'Start Date', name: 'startDate', type: 'string', default: '' },
-					{ displayName: 'End Date', name: 'endDate', type: 'string', default: '' },
-				],
+				options: MISSION_FIELDS,
 			},
 
 			// --- Tag ---
@@ -637,14 +782,15 @@ export class Timizer implements INodeType {
 				},
 			},
 			{
-				displayName: 'Name',
-				name: 'name',
+				displayName: 'Label',
+				name: 'label',
 				type: 'string',
 				required: true,
 				default: '',
 				displayOptions: {
 					show: { resource: ['tag'], operation: ['create'] },
 				},
+				description: 'The tag label shown in Timizer',
 			},
 			{
 				displayName: 'Additional Fields',
@@ -655,9 +801,7 @@ export class Timizer implements INodeType {
 				displayOptions: {
 					show: { resource: ['tag'], operation: ['create'] },
 				},
-				options: [
-					{ displayName: 'Color', name: 'color', type: 'string', default: '' },
-				],
+				options: TAG_FIELDS,
 			},
 			{
 				displayName: 'Update Fields',
@@ -669,8 +813,8 @@ export class Timizer implements INodeType {
 					show: { resource: ['tag'], operation: ['update'] },
 				},
 				options: [
-					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Color', name: 'color', type: 'string', default: '' },
+					{ displayName: 'Label', name: 'label', type: 'string', default: '' },
+					...TAG_FIELDS,
 				],
 			},
 
@@ -707,6 +851,15 @@ export class Timizer implements INodeType {
 				},
 				options: [
 					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
+					{ displayName: 'Color', name: 'color', type: 'color', default: '' },
+					{ displayName: 'Default Client ID', name: 'defaultClientId', type: 'number', default: 0 },
+					{ displayName: 'Default Contracted ID', name: 'defaultContractedId', type: 'number', default: 0 },
+					{ displayName: 'Activity Report Custom Text', name: 'activityReportCustomText', type: 'string', default: '', description: 'Up to 1024 characters' },
+					{ displayName: 'Allow Admins to Create Activity Reports', name: 'allowAdminsToCreateActivityReports', type: 'boolean', default: false },
+					{ displayName: 'Allow Hours Activity Reports', name: 'allowHoursActivityReports', type: 'boolean', default: false },
+					{ displayName: 'Allow Non Signed Activity Report Sharing', name: 'allowNonSignedActivityReportSharing', type: 'boolean', default: false },
+					{ displayName: 'Are Members Restricted to Team Only', name: 'areMembersRestrictedToTeamOnly', type: 'boolean', default: false },
+					{ displayName: 'Force Default Contracted', name: 'forceDefaultContracted', type: 'boolean', default: false },
 				],
 			},
 
@@ -734,6 +887,23 @@ export class Timizer implements INodeType {
 				description: 'Email of the member to invite',
 			},
 			{
+				displayName: 'Additional Fields',
+				name: 'additionalFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: { resource: ['teamMember'], operation: ['invite'] },
+				},
+				options: [
+					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
+					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
+					{ displayName: 'Note', name: 'note', type: 'string', default: '' },
+					{ displayName: 'Is External User', name: 'isExternalUser', type: 'boolean', default: false, description: 'Whether the member is NOT part of your main company (e.g. an external freelancer)' },
+					{ displayName: 'Send Emails', name: 'sendEmails', type: 'boolean', default: true, description: 'Whether to send the invitation email' },
+				],
+			},
+			{
 				displayName: 'Update Fields',
 				name: 'updateFields',
 				type: 'collection',
@@ -748,11 +918,21 @@ export class Timizer implements INodeType {
 						name: 'role',
 						type: 'options',
 						default: 'member',
+						// The API enum is member and admin only.
 						options: [
 							{ name: 'Admin', value: 'admin' },
-							{ name: 'Manager', value: 'manager' },
 							{ name: 'Member', value: 'member' },
 						],
+					},
+					{ displayName: 'First Name', name: 'firstName', type: 'string', default: '' },
+					{ displayName: 'Last Name', name: 'lastName', type: 'string', default: '' },
+					{ displayName: 'Is Active', name: 'isActive', type: 'boolean', default: true },
+					{
+						displayName: 'Email',
+						name: 'email',
+						type: 'string',
+						default: '',
+						description: 'Can only be changed if the member has never logged in before',
 					},
 				],
 			},
@@ -793,7 +973,7 @@ export class Timizer implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				let responseData: IDataObject | IDataObject[];
-				const method = getHttpMethod(operation);
+				const method = getHttpMethod(resource, operation);
 				const endpoint = buildEndpoint(resource, operation, teamId, this, i);
 				const body = buildBody(resource, operation, this, i);
 
@@ -878,18 +1058,23 @@ export class Timizer implements INodeType {
 	}
 }
 
-function getHttpMethod(operation: string): IHttpRequestMethods {
+// Resources whose update endpoint expects PATCH instead of PUT (per the Timizer API spec).
+const PATCH_UPDATE_RESOURCES = new Set(['client', 'contracted', 'team', 'teamMember', 'activityReport']);
+
+function getHttpMethod(resource: string, operation: string): IHttpRequestMethods {
 	switch (operation) {
 		case 'create':
 		case 'share':
 		case 'shareByEmail':
 		case 'refuse':
-		case 'markProcessed':
-		case 'markUnprocessed':
 		case 'invite':
 			return 'POST';
-		case 'update':
+		case 'markProcessed':
+		case 'markUnprocessed':
+			// The Timizer API exposes these as PUT /mark-as-processed and /mark-as-unprocessed.
 			return 'PUT';
+		case 'update':
+			return PATCH_UPDATE_RESOURCES.has(resource) ? 'PATCH' : 'PUT';
 		case 'delete':
 			return 'DELETE';
 		default:
@@ -919,15 +1104,17 @@ function buildEndpoint(
 				case 'share': return `${basePath}/${id}/share`;
 				case 'shareByEmail': return `${basePath}/${id}/share-by-email`;
 				case 'refuse': return `${basePath}/${id}/refuse`;
-				case 'markProcessed': return `${basePath}/${id}/processed`;
-				case 'markUnprocessed': return `${basePath}/${id}/unprocessed`;
-				case 'getPdf': return `${basePath}/${id}/pdf`;
+				case 'markProcessed': return `${basePath}/${id}/mark-as-processed`;
+				case 'markUnprocessed': return `${basePath}/${id}/mark-as-unprocessed`;
+				// The PDF endpoint is exposed at top level, not under /app/admin-teams/{teamId}.
+				case 'getPdf': return `/app/activity-reports/${id}/pdf`;
 				default: return basePath;
 			}
 		}
 
 		case 'client': {
-			const basePath = `${base}/clients`;
+			// Clients are not scoped under /app/admin-teams/{teamId}; they live at /app/clients.
+			const basePath = `/app/clients`;
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const id = ctx.getNodeParameter('clientId', i) as string;
 			return `${basePath}/${id}`;
@@ -935,14 +1122,15 @@ function buildEndpoint(
 
 		case 'clientContact': {
 			const clientId = ctx.getNodeParameter('clientId', i) as string;
-			const basePath = `${base}/clients/${clientId}/contacts`;
+			const basePath = `/app/clients/${clientId}/contacts`;
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const contactId = ctx.getNodeParameter('contactId', i) as string;
 			return `${basePath}/${contactId}`;
 		}
 
 		case 'contracted': {
-			const basePath = `${base}/contracted`;
+			// Contracted companies live at /app/contracted, not under /app/admin-teams/{teamId}.
+			const basePath = `/app/contracted`;
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const id = ctx.getNodeParameter('contractedId', i) as string;
 			return `${basePath}/${id}`;
@@ -950,7 +1138,7 @@ function buildEndpoint(
 
 		case 'contractedContact': {
 			const contractedId = ctx.getNodeParameter('contractedId', i) as string;
-			const basePath = `${base}/contracted/${contractedId}/contacts`;
+			const basePath = `/app/contracted/${contractedId}/contacts`;
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const contactId = ctx.getNodeParameter('contactId', i) as string;
 			return `${basePath}/${contactId}`;
@@ -981,7 +1169,8 @@ function buildEndpoint(
 		case 'teamMember': {
 			const basePath = `${base}/members`;
 			if (operation === 'getMany') return basePath;
-			if (operation === 'invite') return `${basePath}/invite`;
+			// Invitations are created via a dedicated endpoint, not /members/invite.
+			if (operation === 'invite') return `${base}/invitations`;
 			const id = ctx.getNodeParameter('memberId', i) as string;
 			return `${basePath}/${id}`;
 		}
@@ -1006,15 +1195,22 @@ function buildBody(
 	switch (resource) {
 		case 'activityReport': {
 			if (operation === 'create') {
-				body.memberId = ctx.getNodeParameter('memberId', i) as string;
+				body.clientId = ctx.getNodeParameter('clientId', i) as number;
+				body.contractedId = ctx.getNodeParameter('contractedId', i) as number;
 				body.month = ctx.getNodeParameter('month', i) as number;
 				body.year = ctx.getNodeParameter('year', i) as number;
+				body.workDays = collectWorkDays(ctx, i);
+				Object.assign(body, ctx.getNodeParameter('additionalFields', i) as IDataObject);
 			}
 			if (operation === 'update') {
 				Object.assign(body, ctx.getNodeParameter('updateFields', i) as IDataObject);
+				const workDays = collectWorkDays(ctx, i);
+				if (workDays.length > 0) body.workDays = workDays;
 			}
 			if (operation === 'shareByEmail') {
-				body.email = ctx.getNodeParameter('email', i) as string;
+				// Optional: the API falls back to the report's client contact.
+				const contactId = ctx.getNodeParameter('contactId', i, 0) as number;
+				if (contactId) body.contactId = contactId;
 			}
 			break;
 		}
@@ -1073,7 +1269,7 @@ function buildBody(
 
 		case 'tag': {
 			if (operation === 'create') {
-				body.name = ctx.getNodeParameter('name', i) as string;
+				body.label = ctx.getNodeParameter('label', i) as string;
 				Object.assign(body, ctx.getNodeParameter('additionalFields', i) as IDataObject);
 			}
 			if (operation === 'update') {
@@ -1094,7 +1290,18 @@ function buildBody(
 
 		case 'teamMember': {
 			if (operation === 'invite') {
-				body.email = ctx.getNodeParameter('email', i) as string;
+				const additional = ctx.getNodeParameter('additionalFields', i) as IDataObject;
+				const { sendEmails, ...invitationFields } = additional;
+				const invitation: IDataObject = {
+					email: ctx.getNodeParameter('email', i) as string,
+					...invitationFields,
+				};
+				body.invitations = [invitation];
+				// Only send the flag when the user actually set it. The API spec
+				// declares sendEmails without a default, so forcing a value here
+				// would invent a behaviour, and forcing true would email real
+				// people on every execution.
+				if (sendEmails !== undefined) body.sendEmails = sendEmails as boolean;
 			}
 			if (operation === 'update') {
 				Object.assign(body, ctx.getNodeParameter('updateFields', i) as IDataObject);
@@ -1106,6 +1313,22 @@ function buildBody(
 	return body;
 }
 
+// Flatten the Work Days fixedCollection into the array shape the API expects.
+// workedSeconds is only meaningful when workedTime is "custom".
+function collectWorkDays(ctx: IExecuteFunctions, i: number): IDataObject[] {
+	const raw = ctx.getNodeParameter('workDays', i, {}) as IDataObject;
+	const days = (raw.workDay as IDataObject[] | undefined) ?? [];
+	return days.map((d) => {
+		const day: IDataObject = {
+			dayOfMonth: d.dayOfMonth,
+			workedTime: d.workedTime,
+		};
+		if (d.workedTime === 'custom') day.workedSeconds = d.workedSeconds;
+		if (d.note) day.note = d.note;
+		return day;
+	});
+}
+
 function buildQueryString(
 	resource: string,
 	ctx: IExecuteFunctions,
@@ -1115,11 +1338,22 @@ function buildQueryString(
 
 	if (resource === 'activityReport') {
 		const filters = ctx.getNodeParameter('filters', i, {}) as IDataObject;
-		if (filters.memberId) qs.memberId = filters.memberId;
+		if (filters.since) qs.since = filters.since;
 		if (filters.month) qs.month = filters.month;
 		if (filters.year) qs.year = filters.year;
-		if (filters.status) qs.status = filters.status;
+		if (filters.clientId) qs.clientId = filters.clientId;
+		// Both are repeatable array parameters on the API side.
+		if (filters.missionId) qs.missionId = splitList(filters.missionId as string);
+		if (filters.workflowStepName)
+			qs.workflowStepName = splitList(filters.workflowStepName as string);
 	}
 
 	return qs;
+}
+
+function splitList(value: string): string[] {
+	return value
+		.split(',')
+		.map((v) => v.trim())
+		.filter((v) => v !== '');
 }
