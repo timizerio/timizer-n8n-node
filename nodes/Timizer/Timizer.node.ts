@@ -401,11 +401,11 @@ export class Timizer implements INodeType {
 				},
 				options: [
 					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
+					{ displayName: 'Zip Code', name: 'postalCode', type: 'string', default: '' },
 					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'SIRET', name: 'uniqueIdentifier', type: 'string', default: '' },
 				],
 			},
 			{
@@ -418,11 +418,11 @@ export class Timizer implements INodeType {
 					show: { resource: ['client'], operation: ['create'] },
 				},
 				options: [
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
+					{ displayName: 'Zip Code', name: 'postalCode', type: 'string', default: '' },
 					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'SIRET', name: 'uniqueIdentifier', type: 'string', default: '' },
 				],
 			},
 
@@ -514,11 +514,10 @@ export class Timizer implements INodeType {
 				},
 				options: [
 					{ displayName: 'Name', name: 'name', type: 'string', default: '' },
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
-					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'Zip Code', name: 'postalCode', type: 'string', default: '' },
+					{ displayName: 'SIRET', name: 'uniqueIdentifier', type: 'string', default: '' },
 				],
 			},
 			{
@@ -531,11 +530,10 @@ export class Timizer implements INodeType {
 					show: { resource: ['contracted'], operation: ['create'] },
 				},
 				options: [
-					{ displayName: 'Address', name: 'address', type: 'string', default: '' },
+					{ displayName: 'Address', name: 'fullAddress', type: 'string', default: '' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '' },
-					{ displayName: 'Zip Code', name: 'zipCode', type: 'string', default: '' },
-					{ displayName: 'Country', name: 'country', type: 'string', default: '' },
-					{ displayName: 'SIRET', name: 'siret', type: 'string', default: '' },
+					{ displayName: 'Zip Code', name: 'postalCode', type: 'string', default: '' },
+					{ displayName: 'SIRET', name: 'uniqueIdentifier', type: 'string', default: '' },
 				],
 			},
 
@@ -793,7 +791,7 @@ export class Timizer implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				let responseData: IDataObject | IDataObject[];
-				const method = getHttpMethod(operation);
+				const method = getHttpMethod(resource, operation);
 				const endpoint = buildEndpoint(resource, operation, teamId, this, i);
 				const body = buildBody(resource, operation, this, i);
 
@@ -845,7 +843,14 @@ export class Timizer implements INodeType {
 				);
 
 				if (operation === 'getMany') {
-					const results = Array.isArray(responseData) ? responseData : [responseData];
+					let results: IDataObject[];
+					if (Array.isArray(responseData)) {
+						results = responseData;
+					} else if (resource === 'client' || resource === 'contracted') {
+						results = ((responseData as IDataObject).companies as IDataObject[]) ?? [];
+					} else {
+						results = [responseData];
+					}
 					const returnAll = this.getNodeParameter('returnAll', i) as boolean;
 					if (!returnAll) {
 						const limit = this.getNodeParameter('limit', i) as number;
@@ -878,7 +883,10 @@ export class Timizer implements INodeType {
 	}
 }
 
-function getHttpMethod(operation: string): IHttpRequestMethods {
+// Resources whose API uses PATCH (rather than PUT) for updates.
+const PATCH_UPDATE_RESOURCES = new Set(['client', 'contracted', 'activityReport', 'teamMember', 'team']);
+
+function getHttpMethod(resource: string, operation: string): IHttpRequestMethods {
 	switch (operation) {
 		case 'create':
 		case 'share':
@@ -889,7 +897,7 @@ function getHttpMethod(operation: string): IHttpRequestMethods {
 		case 'invite':
 			return 'POST';
 		case 'update':
-			return 'PUT';
+			return PATCH_UPDATE_RESOURCES.has(resource) ? 'PATCH' : 'PUT';
 		case 'delete':
 			return 'DELETE';
 		default:
@@ -927,7 +935,7 @@ function buildEndpoint(
 		}
 
 		case 'client': {
-			const basePath = `${base}/clients`;
+			const basePath = '/app/clients';
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const id = ctx.getNodeParameter('clientId', i) as string;
 			return `${basePath}/${id}`;
@@ -935,14 +943,14 @@ function buildEndpoint(
 
 		case 'clientContact': {
 			const clientId = ctx.getNodeParameter('clientId', i) as string;
-			const basePath = `${base}/clients/${clientId}/contacts`;
+			const basePath = `/app/clients/${clientId}/contacts`;
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const contactId = ctx.getNodeParameter('contactId', i) as string;
 			return `${basePath}/${contactId}`;
 		}
 
 		case 'contracted': {
-			const basePath = `${base}/contracted`;
+			const basePath = '/app/contracted';
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const id = ctx.getNodeParameter('contractedId', i) as string;
 			return `${basePath}/${id}`;
@@ -950,7 +958,7 @@ function buildEndpoint(
 
 		case 'contractedContact': {
 			const contractedId = ctx.getNodeParameter('contractedId', i) as string;
-			const basePath = `${base}/contracted/${contractedId}/contacts`;
+			const basePath = `/app/contracted/${contractedId}/contacts`;
 			if (operation === 'getMany' || operation === 'create') return basePath;
 			const contactId = ctx.getNodeParameter('contactId', i) as string;
 			return `${basePath}/${contactId}`;
@@ -981,7 +989,7 @@ function buildEndpoint(
 		case 'teamMember': {
 			const basePath = `${base}/members`;
 			if (operation === 'getMany') return basePath;
-			if (operation === 'invite') return `${basePath}/invite`;
+			if (operation === 'invite') return `${base}/invitations`;
 			const id = ctx.getNodeParameter('memberId', i) as string;
 			return `${basePath}/${id}`;
 		}
@@ -1094,7 +1102,8 @@ function buildBody(
 
 		case 'teamMember': {
 			if (operation === 'invite') {
-				body.email = ctx.getNodeParameter('email', i) as string;
+				body.invitations = [{ email: ctx.getNodeParameter('email', i) as string }];
+				body.sendEmails = true;
 			}
 			if (operation === 'update') {
 				Object.assign(body, ctx.getNodeParameter('updateFields', i) as IDataObject);
